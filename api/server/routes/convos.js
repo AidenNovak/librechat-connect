@@ -360,6 +360,7 @@ router.post('/fork', forkIpLimiter, forkUserLimiter, async (req, res) => {
       records: true,
       splitAtTarget,
       option,
+      interfaceConfig: req.config?.interfaceConfig,
     });
 
     res.json(result);
@@ -377,6 +378,7 @@ router.post('/duplicate', forkIpLimiter, forkUserLimiter, async (req, res) => {
       userId: req.user.id,
       conversationId,
       title,
+      interfaceConfig: req.config?.interfaceConfig,
     });
     res.status(201).json(result);
   } catch (error) {
