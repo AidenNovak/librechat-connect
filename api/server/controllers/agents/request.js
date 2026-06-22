@@ -1017,6 +1017,7 @@ const ResumableAgentController = async (req, res, next, initializeClient, addTit
             partialMessage,
             {
               context: 'api/server/controllers/agents/request.js - partial response on disconnect',
+              capExpiryToConversation: true,
             },
           );
 
