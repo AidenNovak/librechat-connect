@@ -16,6 +16,7 @@ const {
   resolveAgentScopedSkillIds,
   resolveModelSpecSkillIds,
   getAgentStartupTelemetry,
+  isContentFilterError,
   buildAgentContextAttachmentsByAgentId,
   getLazySubagentConfigId,
 } = require('@librechat/api');
@@ -113,7 +114,7 @@ function createToolLoader(signal, streamId = null, definitionsOnly = false, jobC
         accessibleMcpServerNames,
       });
     } catch (error) {
-      if (isFatalAgentInitializationError(error)) {
+      if (isFatalAgentInitializationError(error) || isContentFilterError(error)) {
         throw error;
       }
       logger.error('Error loading tools for agent ' + agentId, error);

@@ -15,11 +15,12 @@ import { fileConfigSchema } from './file-config';
 import { apiBaseUrl } from './api-endpoints';
 import { FileSources } from './types/files';
 import { MCPServersSchema } from './mcp';
+import { filtersConfigSchema } from './filters';
 export { MAX_SUBAGENTS } from './limits';
 
 export const defaultSocialLogins = ['google', 'facebook', 'openid', 'github', 'discord', 'saml'];
 
-export const BASE_ONLY_CONFIG_SECTIONS = [] as const;
+export const BASE_ONLY_CONFIG_SECTIONS = ['filters'] as const;
 /** Sections that may be stored in the tenant's base config document but must
  * not be overridden or tombstoned by role, group, or user config documents. */
 export const BASE_PRINCIPAL_CONFIG_SECTIONS = ['langfuse'] as const;
@@ -2054,6 +2055,7 @@ export const configSchema = z.object({
   rateLimits: rateLimitSchema.optional(),
   fileConfig: fileConfigSchema.optional(),
   modelSpecs: specsConfigSchema.optional(),
+  filters: filtersConfigSchema.optional(),
   messageFilter: messageFilterSchema.optional(),
   endpoints: z
     .object({

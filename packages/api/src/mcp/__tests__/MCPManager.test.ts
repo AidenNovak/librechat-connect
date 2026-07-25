@@ -3013,9 +3013,11 @@ describe('MCPManager', () => {
       expect(result).toEqual({ tools: null, oauthRequired: false, oauthUrl: null });
       expect(MCPConnectionFactory.discoverTools).not.toHaveBeenCalled();
       expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('Request body field(s) required'),
+        '[MCP][Discovery] Runtime request fields are missing',
+        { missingBodyFieldCount: 1 },
       );
-      expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('messageId'));
+      expect(JSON.stringify(mockLogger.warn.mock.calls)).not.toContain('messageId');
+      expect(JSON.stringify(mockLogger.warn.mock.calls)).not.toContain(serverName);
     });
 
     it('should return null tools when server config not found', async () => {
@@ -3031,7 +3033,7 @@ describe('MCPManager', () => {
       expect(result.tools).toBeNull();
       expect(result.oauthRequired).toBe(false);
       expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('Server config not found'),
+        '[MCP][Discovery] Server configuration not found',
       );
     });
 
@@ -3074,7 +3076,7 @@ describe('MCPManager', () => {
       expect(result.tools).toBeNull();
       expect(result.oauthRequired).toBe(true);
       expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('OAuth server requires user and flowManager'),
+        '[MCP][Discovery] OAuth server requires a user and flow manager',
       );
     });
 
