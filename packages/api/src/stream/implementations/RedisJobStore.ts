@@ -2904,6 +2904,7 @@ export class RedisJobStore implements IJobStoreV2 {
     streamId: string,
     tenantId?: string,
     generationId?: number,
+    leaseId?: string,
   ): Promise<void> {
     const key = KEYS.userFinalizations(userId, tenantId);
     const expiresAt = Date.now() + USER_FINALIZATION_TTL_MS;
@@ -2916,7 +2917,7 @@ export class RedisJobStore implements IJobStoreV2 {
       REGISTER_FINALIZATION_LUA,
       1,
       key,
-      finalizationField(streamId, generationId),
+      finalizationField(streamId, generationId, leaseId),
       String(expiresAt),
       String(Math.ceil(USER_FINALIZATION_TTL_MS / 1000)),
     );
@@ -2927,10 +2928,11 @@ export class RedisJobStore implements IJobStoreV2 {
     streamId: string,
     tenantId?: string,
     generationId?: number,
+    leaseId?: string,
   ): Promise<void> {
     await this.redis.hdel(
       KEYS.userFinalizations(userId, tenantId),
-      finalizationField(streamId, generationId),
+      finalizationField(streamId, generationId, leaseId),
     );
   }
 
