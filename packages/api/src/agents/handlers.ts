@@ -13,6 +13,7 @@ import type {
 } from '@librechat/agents';
 import type { StructuredToolInterface } from '@librechat/agents/langchain/tools';
 import type { ValidationIssue } from '@librechat/data-schemas';
+import { hasActivePiiFields, hasActivePiiPatterns } from 'librechat-data-provider';
 import type { CodeEnvRef } from 'librechat-data-provider';
 import type { SkillFileRecord, PrimeSkillFilesResult } from './skillFiles';
 import type { TextContentFragment } from '~/protection';
@@ -28,6 +29,7 @@ import {
   extractFileContent,
   extractSkillContent,
   extractToolArgumentContent,
+  hasActiveFileFieldPolicy,
   getContentTraversalFragments,
   getBlockedUninspectableFileField,
   inspectContent,
@@ -141,6 +143,7 @@ export interface ToolExecuteOptions {
     body: string;
     name: string;
     description?: string;
+    frontmatter?: Record<string, unknown>;
     _id: Types.ObjectId;
     /** Monotonic counter on the skill record. Threaded into
      *  `codeEnvRef.version` so codeapi's sessionKey scopes the cache
@@ -168,6 +171,7 @@ export interface ToolExecuteOptions {
     body: string;
     name: string;
     description?: string;
+    frontmatter?: Record<string, unknown>;
     _id: Types.ObjectId;
     version: number;
     fileCount: number;
@@ -654,17 +658,19 @@ function filteredToolArgumentsResult(
   args: unknown,
 ): ToolExecuteResult | null {
   const pii = req?.config?.filters?.toolArguments?.pii;
-  if (
-    pii == null ||
-    (pii.fields != null && !pii.fields.includes('name') && !pii.fields.includes('arguments'))
-  ) {
+  if (!hasActivePiiFields(pii, ['name', 'arguments'])) {
     return null;
   }
+  const inspectName = pii?.fields == null || pii.fields.includes('name');
+  const inspectArguments = pii?.fields == null || pii.fields.includes('arguments');
   try {
     return filteredContentResult(
       tc,
       req,
-      extractToolArgumentContent({ name: tc.name, arguments: args }),
+      extractToolArgumentContent({
+        ...(inspectName && { name: tc.name }),
+        ...(inspectArguments && { arguments: args }),
+      }),
     );
   } catch (error) {
     if (!isContentTraversalLimitError(error)) {
@@ -683,7 +689,7 @@ function filteredToolOutputResult(
   output: unknown,
 ): ToolExecuteResult | null {
   const pii = req?.config?.filters?.toolArguments?.pii;
-  if (pii == null || (pii.fields != null && !pii.fields.includes('output'))) {
+  if (!hasActivePiiFields(pii, ['output'])) {
     return null;
   }
   try {
@@ -704,10 +710,31 @@ function filteredSkillResult(
   req: ServerRequest | undefined,
   input: Parameters<typeof extractSkillContent>[0],
 ): ToolExecuteResult | null {
-  if (req?.config?.filters?.skills?.pii == null) {
+  const pii = req?.config?.filters?.skills?.pii;
+  if (!hasActivePiiPatterns(pii)) {
     return null;
   }
-  return filteredContentResult(tc, req, extractSkillContent(input));
+  const selectedFields = new Set<string>(pii?.fields ?? []);
+  const selected = (field: string): boolean => pii?.fields == null || selectedFields.has(field);
+  const projected = {
+    ...(selected('name') && { name: input?.name }),
+    ...(selected('display_title') && { displayTitle: input?.displayTitle }),
+    ...(selected('description') && { description: input?.description }),
+    ...(selected('category') && { category: input?.category }),
+    ...(selected('instructions') && {
+      body: input?.body,
+      instructions: input?.instructions,
+    }),
+    ...(selected('imported_text') && { importedText: input?.importedText }),
+    ...(selected('frontmatter') && { frontmatter: input?.frontmatter }),
+    ...((selected('file_name') || selected('file_text')) && {
+      files: input?.files?.map((file) => ({
+        ...(selected('file_name') && { name: file?.name, filename: file?.filename }),
+        ...(selected('file_text') && { text: file?.text, content: file?.content }),
+      })),
+    }),
+  };
+  return filteredContentResult(tc, req, extractSkillContent(projected));
 }
 
 function filteredFileNameResult(
@@ -715,7 +742,7 @@ function filteredFileNameResult(
   req: ServerRequest | undefined,
   filename: string,
 ): ToolExecuteResult | null {
-  if (req?.config?.filters?.files?.pii == null) {
+  if (!hasActiveFileFieldPolicy(req?.config?.filters, ['name'])) {
     return null;
   }
   return filteredContentResult(tc, req, extractFileContent({ filename }));
@@ -743,12 +770,16 @@ function filteredFileResult(
   filename: string,
   content: string,
 ): ToolExecuteResult | null {
-  if (req?.config?.filters?.files?.pii == null) {
+  const filters = req?.config?.filters;
+  if (!hasActiveFileFieldPolicy(filters, ['name', 'content'])) {
     return null;
   }
   const filteredName = filteredFileNameResult(tc, req, filename);
   if (filteredName != null) {
     return filteredName;
+  }
+  if (!hasActiveFileFieldPolicy(filters, ['content'])) {
+    return null;
   }
   if (looksBinary(content)) {
     return uninspectableFileResult(tc, req);
@@ -3384,6 +3415,7 @@ async function handleReadFileCall(
       name: skill.name,
       description: skill.description,
       body: skill.body,
+      frontmatter: skill.frontmatter,
     });
     if (filtered != null) {
       return filtered;
@@ -3699,6 +3731,7 @@ async function handleSkillToolCall(
     name: skill.name,
     description: skill.description,
     body,
+    frontmatter: skill.frontmatter,
   });
   if (filtered != null) {
     return filtered;

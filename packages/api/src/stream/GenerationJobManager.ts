@@ -2402,6 +2402,7 @@ class GenerationJobManagerClass {
         userMessage: jobData.userMessage,
         responseMessageId: jobData.responseMessageId,
         userSubmittedPaths: jobData.userSubmittedPaths,
+        userSubmittedMessageFieldPaths: jobData.userSubmittedMessageFieldPaths,
         sender: jobData.sender,
         endpoint: jobData.endpoint,
         iconURL: jobData.iconURL,
@@ -3809,6 +3810,7 @@ class GenerationJobManagerClass {
           ...getSteerUserSubmittedPaths(abortContent as TMessageContentParts[]),
         ]),
       ];
+      const userSubmittedMessageFieldPaths = jobData.userSubmittedMessageFieldPaths ?? [];
 
       const abortFinalEvent: t.ServerSentEvent = {
         final: true,
@@ -3840,6 +3842,9 @@ class GenerationJobManagerClass {
               error: false,
               isCreatedByUser: false,
               ...(userSubmittedPaths.length > 0 && { userSubmittedPaths }),
+              ...(userSubmittedMessageFieldPaths.length > 0 && {
+                userSubmittedMessageFieldPaths,
+              }),
             },
         aborted: true,
         // Flag for early abort - no messages saved, frontend should go to new chat
@@ -6210,6 +6215,9 @@ class GenerationJobManagerClass {
       ...sanitizeJobMetadata(metadata),
       ...(metadata.userSubmittedPaths && {
         userSubmittedPaths: metadata.userSubmittedPaths,
+      }),
+      ...(metadata.userSubmittedMessageFieldPaths && {
+        userSubmittedMessageFieldPaths: metadata.userSubmittedMessageFieldPaths,
       }),
     };
     await this.jobStore.updateJob(streamId, updates, generationId);

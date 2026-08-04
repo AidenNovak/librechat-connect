@@ -55,6 +55,8 @@ const {
   isActionTool,
   actionDelimiter,
   ImageVisionTool,
+  hasActivePiiFields,
+  hasActivePiiPatterns,
   openapiToFunction,
   AgentCapabilities,
   isEphemeralAgentId,
@@ -95,6 +97,8 @@ const { getFlowStateManager, getMCPServersRegistry } = require('~/config');
 const { getLogStores } = require('~/cache');
 
 const domainSeparatorRegex = new RegExp(actionDomainSeparator, 'g');
+const encryptedActionMetadataFields = ['api_key', 'oauth_client_id', 'oauth_client_secret'];
+const requiredActionContentFields = ['name', 'arguments', 'output'];
 
 const getActiveToolResources = (toolResources, tools) => {
   if (toolResources == null) {
@@ -153,7 +157,10 @@ const prepareStoredActionsForUse = async ({ actions, filters, decrypt }) => {
     });
   }
 
-  const inspectDecryptedMetadata = filters?.actionMetadata?.pii != null;
+  const inspectDecryptedMetadata = hasActivePiiFields(
+    filters?.actionMetadata?.pii,
+    encryptedActionMetadataFields,
+  );
   if (!decrypt && !inspectDecryptedMetadata) {
     return actions;
   }
@@ -321,10 +328,23 @@ const processVisionRequest = async (client, currentAction) => {
 
 const getRequiredActionContentFinding = (client, input) => {
   const filters = client.req.config?.filters;
-  if (filters?.toolArguments?.pii == null) {
+  const pii = filters?.toolArguments?.pii;
+  if (!hasActivePiiPatterns(pii)) {
     return null;
   }
-  return inspectContent(extractToolArgumentContent(input), { filters });
+  const candidateFields = requiredActionContentFields.filter((field) =>
+    Object.prototype.hasOwnProperty.call(input, field),
+  );
+  if (!hasActivePiiFields(pii, candidateFields)) {
+    return null;
+  }
+  const selectedInput = {};
+  for (const field of candidateFields) {
+    if (hasActivePiiFields(pii, [field])) {
+      selectedInput[field] = input[field];
+    }
+  }
+  return inspectContent(extractToolArgumentContent(selectedInput), { filters });
 };
 
 const getSafeRequiredActionOutput = (client, currentAction, output) => {
