@@ -12,6 +12,7 @@ import {
 } from '@librechat/client';
 import type { TUserMemory } from 'librechat-data-provider';
 import { useUpdateMemoryMutation, useMemoriesQuery } from '~/data-provider';
+import { getMemoryAddress, getMemoryUpdateAddress } from './address';
 import { useLocalize, useHasAccess } from '~/hooks';
 import MemoryUsageBadge from './MemoryUsageBadge';
 
@@ -92,22 +93,24 @@ export default function MemoryEditDialog({
 
   const [key, setKey] = useState('');
   const [value, setValue] = useState('');
-  const [originalKey, setOriginalKey] = useState('');
+  const memoryAddress = memory ? getMemoryAddress(memory) : null;
+  const requiresKey =
+    memoryAddress == null || !('id' in memoryAddress) || memory?.key.trim() !== '';
 
   useEffect(() => {
     if (memory) {
       setKey(memory.key);
       setValue(memory.value);
-      setOriginalKey(memory.key);
     }
   }, [memory]);
 
   const handleSave = () => {
-    if (!hasUpdateAccess || !memory) {
+    if (!hasUpdateAccess || !memory || !memoryAddress) {
       return;
     }
 
-    if (!key.trim() || !value.trim()) {
+    const trimmedKey = key.trim();
+    if ((requiresKey && !trimmedKey) || !value.trim()) {
       showToast({
         message: localize('com_ui_field_required'),
         status: 'error',
@@ -115,11 +118,15 @@ export default function MemoryEditDialog({
       return;
     }
 
+    const updateAddress = getMemoryUpdateAddress(memory, trimmedKey);
+    if (!updateAddress) {
+      return;
+    }
+
     updateMemory({
-      key: key.trim(),
+      ...updateAddress,
       value: value.trim(),
       agentId: memory.agentId,
-      ...(originalKey !== key.trim() && { originalKey }),
     });
   };
 
@@ -221,7 +228,9 @@ export default function MemoryEditDialog({
               variant="submit"
               onClick={handleSave}
               aria-label={localize('com_ui_save')}
-              disabled={isLoading || !key.trim() || !value.trim()}
+              disabled={
+                isLoading || !memoryAddress || !value.trim() || (requiresKey && !key.trim())
+              }
             >
               {isLoading ? <Spinner className="size-4" /> : localize('com_ui_save')}
             </Button>
