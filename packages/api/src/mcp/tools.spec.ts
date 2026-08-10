@@ -95,6 +95,43 @@ describe('createMCPToolCacheService', () => {
       });
     });
 
+    it('strips a redundant server-name prefix from keys and records the raw name', async () => {
+      /** `acme_trace..._mcp_acme` carries the server twice and can
+       *  push the model-facing name past provider function-name limits (64). */
+      const deps = createMockDeps();
+      const { updateMCPServerTools } = createMCPToolCacheService(deps);
+      const tools: MCPToolInput[] = [
+        { name: 'acme_trace_top_time_consuming_operations', description: 'Trace' },
+        { name: 'list_services', description: 'List' },
+      ];
+
+      const result = await updateMCPServerTools({ userId: 'u1', serverName: 'acme', tools });
+
+      const strippedKey = `trace_top_time_consuming_operations${Constants.mcp_delimiter}acme`;
+      const plainKey = `list_services${Constants.mcp_delimiter}acme`;
+      expect(Object.keys(result).sort()).toEqual([plainKey, strippedKey].sort());
+      expect(result[strippedKey]['function'].name).toBe(strippedKey);
+      expect(result[strippedKey].serverToolName).toBe('acme_trace_top_time_consuming_operations');
+      expect(result[plainKey].serverToolName).toBeUndefined();
+    });
+
+    it('keeps the prefixed key when stripping would collide with a sibling tool', async () => {
+      const deps = createMockDeps();
+      const { updateMCPServerTools } = createMCPToolCacheService(deps);
+      const tools: MCPToolInput[] = [
+        { name: 'search', description: 'Plain' },
+        { name: 'acme_search', description: 'Prefixed' },
+      ];
+
+      const result = await updateMCPServerTools({ userId: 'u1', serverName: 'acme', tools });
+
+      const plainKey = `search${Constants.mcp_delimiter}acme`;
+      const prefixedKey = `acme_search${Constants.mcp_delimiter}acme`;
+      expect(Object.keys(result).sort()).toEqual([prefixedKey, plainKey].sort());
+      expect(result[plainKey].serverToolName).toBeUndefined();
+      expect(result[prefixedKey].serverToolName).toBeUndefined();
+    });
+
     it('builds tool names without caching when the resolved config is request-scoped', async () => {
       const deps = createMockDeps({
         getServerConfig: jest.fn().mockResolvedValue(requestScopedConfig),

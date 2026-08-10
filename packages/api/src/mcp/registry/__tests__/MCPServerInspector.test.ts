@@ -571,5 +571,29 @@ describe('MCPServerInspector', () => {
       expect(Object.keys(result)).toEqual([key]);
       expect(result[key]['function'].name).toBe(key);
     });
+
+    it('strips a redundant server-name prefix from keys and records the raw name', async () => {
+      mockConnection.fetchTools = jest.fn().mockResolvedValue([
+        {
+          name: 'acme_trace_top_time_consuming_operations',
+          description: 'Trace',
+          inputSchema: { type: 'object', properties: {} },
+        },
+        {
+          name: 'list_services',
+          description: 'List',
+          inputSchema: { type: 'object', properties: {} },
+        },
+      ]);
+
+      const result = await MCPServerInspector.getToolFunctions('acme', mockConnection);
+
+      const strippedKey = 'trace_top_time_consuming_operations_mcp_acme';
+      const plainKey = 'list_services_mcp_acme';
+      expect(Object.keys(result).sort()).toEqual([plainKey, strippedKey].sort());
+      expect(result[strippedKey]['function'].name).toBe(strippedKey);
+      expect(result[strippedKey].serverToolName).toBe('acme_trace_top_time_consuming_operations');
+      expect(result[plainKey].serverToolName).toBeUndefined();
+    });
   });
 });
