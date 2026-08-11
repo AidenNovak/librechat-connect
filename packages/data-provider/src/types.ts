@@ -618,6 +618,23 @@ export type TConfirm2FASetupRequest = {
 };
 
 export type TConfirm2FASetupResponse = {
+  backupCodes: string[];
+  acknowledgementToken: string;
+};
+
+export type TAcknowledge2FASetupRequest = {
+  acknowledgementToken: string;
+};
+
+export type TAcknowledge2FASetupResponse = {
+  finalizationToken: string;
+};
+
+export type TFinalize2FASetupRequest = {
+  finalizationToken: string;
+};
+
+export type TFinalize2FASetupResponse = {
   token: string;
   user: TUser;
 };
@@ -676,8 +693,11 @@ export type TVerifyEmail = {
 export type TResendVerificationEmail = Omit<TVerifyEmail, 'token'>;
 
 export type TRefreshTokenResponse = {
-  token: string;
-  user: TUser;
+  token?: string;
+  user?: TUser;
+  twoFAPending?: boolean;
+  twoFASetupRequired?: boolean;
+  tempToken?: string;
 };
 
 export type TCheckUserKeyResponse = {

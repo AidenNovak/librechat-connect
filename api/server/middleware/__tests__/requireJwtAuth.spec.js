@@ -68,6 +68,8 @@ jest.mock('@librechat/api', () => {
     normalizeContextValue(req.headers?.['x-correlation-id']);
   return {
     isEnabled: jest.fn(() => false),
+    generateTwoFactorSetupToken: jest.fn(() => 'setup-token'),
+    isTwoFactorEnrollmentRequired: jest.fn(() => false),
     recordRumProxyRequest: jest.fn(),
     getAuthFailureReasonCategory: actualApi.getAuthFailureReasonCategory,
     buildSafeAuthLogContext: actualApi.buildSafeAuthLogContext,
@@ -95,6 +97,8 @@ const {
   isEnabled,
   maybeRefreshCloudFrontAuthCookiesMiddleware,
   recordRumProxyRequest,
+  generateTwoFactorSetupToken,
+  isTwoFactorEnrollmentRequired,
 } = require('@librechat/api');
 const passport = require('passport');
 
@@ -140,6 +144,7 @@ describe('requireJwtAuth tenant context chaining', () => {
     mockPassportError = null;
     mockRegisteredStrategies = new Set(['jwt']);
     isEnabled.mockReturnValue(false);
+    isTwoFactorEnrollmentRequired.mockReturnValue(false);
     maybeRefreshCloudFrontAuthCookiesMiddleware.mockClear();
     logger.debug.mockClear();
     logger.info.mockClear();
@@ -185,6 +190,42 @@ describe('requireJwtAuth tenant context chaining', () => {
       expect.any(Function),
     );
     expect(next).toHaveBeenCalled();
+  });
+
+  it('blocks protected API access for unenrolled local users', () => {
+    isTwoFactorEnrollmentRequired.mockReturnValue(true);
+    const req = mockReq(
+      { id: 'user-123', provider: 'local', twoFactorEnabled: false },
+      { method: 'GET', baseUrl: '/api/convos', path: '/' },
+    );
+    const res = mockRes();
+    const next = jest.fn();
+
+    requireJwtAuth(req, res, next);
+
+    expect(generateTwoFactorSetupToken).toHaveBeenCalledWith('user-123', process.env.JWT_SECRET);
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({
+      twoFAPending: true,
+      twoFASetupRequired: true,
+      tempToken: 'setup-token',
+    });
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('allows only the exact logout route through the enrollment policy', () => {
+    isTwoFactorEnrollmentRequired.mockReturnValue(true);
+    const req = mockReq(
+      { id: 'user-123', provider: 'local', twoFactorEnabled: false },
+      { method: 'POST', baseUrl: '/api/auth', path: '/logout' },
+    );
+    const res = mockRes();
+    const next = jest.fn();
+
+    requireJwtAuth(req, res, next);
+
+    expect(generateTwoFactorSetupToken).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledTimes(1);
   });
 
   it('refreshes CloudFront auth cookies inside the request context', () => {
