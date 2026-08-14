@@ -19,23 +19,6 @@ import type { SkillFileRecord, PrimeSkillFilesResult } from './skillFiles';
 import type { TextContentFragment } from '~/protection';
 import type { ServerRequest } from '~/types';
 import {
-  ContentFilterError,
-  contentFilterBlockResponse,
-  contentFilterModelBoundBlockResponse,
-  isContentFilterError,
-} from '~/middleware/contentFilter';
-import {
-  contentFilterUninspectableResponse,
-  extractFileContent,
-  extractSkillContent,
-  extractToolArgumentContent,
-  hasActiveFileFieldPolicy,
-  getContentTraversalFragments,
-  getBlockedUninspectableFileField,
-  inspectContent,
-  isContentTraversalLimitError,
-} from '~/protection';
-import {
   backgroundTaskRegistry,
   runCheckBackgroundTask,
   getBackgroundTaskSnapshot,
@@ -53,11 +36,27 @@ import {
   RUN_IN_BACKGROUND_ARG,
 } from './background';
 import {
+  contentFilterUninspectableResponse,
+  extractFileContent,
+  extractSkillContent,
+  extractToolArgumentContent,
+  hasActiveFileFieldPolicy,
+  getContentTraversalFragments,
+  getBlockedUninspectableFileField,
+  inspectContent,
+  isContentTraversalLimitError,
+} from '~/protection';
+import {
   CREATE_FILE_TOOL_NAME,
   EDIT_FILE_TOOL_NAME,
   HOST_FILE_AUTHORING_ARTIFACT_KEY,
   isCodeSessionToolName,
 } from './tools';
+import {
+  ContentFilterError,
+  contentFilterModelBoundBlockResponse,
+  isContentFilterError,
+} from '~/middleware/contentFilter';
 import {
   hasIntentArg,
   stripIntentArg,

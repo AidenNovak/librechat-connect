@@ -16,9 +16,9 @@ import {
   UninspectableFileError,
 } from '~/protection';
 import { ContentFilterError, isContentFilterError } from '~/middleware/contentFilter';
-import { isBinaryBuffer } from '~/skills/binary';
 import { createConcurrencyLimiter, getSafeErrorMetadata } from '~/utils';
 import { extractInvokedSkillsFromPayload } from './run';
+import { isBinaryBuffer } from '~/skills/binary';
 import { SKILL_FILE_PREFIX } from './skills';
 
 const MAX_INSPECTABLE_SKILL_FILE_BYTES = 10 * 1024 * 1024;
