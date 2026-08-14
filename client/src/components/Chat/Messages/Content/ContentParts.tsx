@@ -1,4 +1,4 @@
-import { memo, useRef, useMemo, useCallback, Fragment } from 'react';
+import { memo, useRef, useMemo, useEffect, useCallback, Fragment } from 'react';
 import { ContentTypes } from 'librechat-data-provider';
 import type {
   TMessageContentParts,
@@ -11,10 +11,11 @@ import type { ToolCallGroupExpansionState } from './ToolCallGroup';
 import { mapAttachments, filterAttachmentsForPart, groupSequentialToolCalls } from '~/utils';
 import { groupActivityPhases, lastVisibleContentIdx } from '~/utils/activityLabels';
 import { ParallelContentRenderer, type PartWithIndex } from './ParallelContent';
-import { EditTextPart, EmptyText, AgentUpdate } from './Parts';
 import { MessageContext, SearchContext } from '~/Providers';
 import PendingSkillCall from './Parts/PendingSkillCall';
 import ActivityPhaseGroup from './ActivityPhaseGroup';
+import EditContentParts from './EditContentParts';
+import { EmptyText, AgentUpdate } from './Parts';
 import ApprovalProvider from './ApprovalContext';
 import MemoryArtifacts from './MemoryArtifacts';
 import Sources from '~/components/Web/Sources';
@@ -214,6 +215,37 @@ const ContentParts = memo(function ContentParts({
     (localIndex: number) => contentIndices?.[localIndex] ?? localIndex + contentIndexOffset,
     [contentIndexOffset, contentIndices],
   );
+  /** Hoisted above the early returns to feed the entrance-detection hook
+   *  below, so it is memoized rather than re-walked on every unrelated
+   *  re-render of a message that has no phases at all. */
+  const phaseSegments = useMemo(
+    () => (nestedActivityPhase ? undefined : groupActivityPhases(content)),
+    [nestedActivityPhase, content],
+  );
+  const completedPhaseIndices = useMemo(() => {
+    const indices = new Set<number>();
+    for (const segment of phaseSegments ?? []) {
+      if (segment.type === 'phase') {
+        indices.add(segment.labelIndex);
+      }
+    }
+    return indices;
+  }, [phaseSegments]);
+  /** A phase label can finish after the root text stream settles, so
+   *  `isSubmitting` is not a reliable entrance signal. Compare committed
+   *  phase markers instead: a marker that appears after this renderer has
+   *  mounted is live; markers present on the first render are history.
+   *
+   *  The recorded set is scoped to the message it described. `MultiMessage`
+   *  renders siblings without a key, so this instance survives a sibling
+   *  switch with its refs intact — an unscoped set would report the previous
+   *  sibling's phases and animate the newly selected sibling's history. */
+  const previousPhaseRef = useRef<{ messageId: string; indices: Set<number> } | null>(null);
+  const previousPhaseIndices =
+    previousPhaseRef.current?.messageId === messageId ? previousPhaseRef.current.indices : null;
+  useEffect(() => {
+    previousPhaseRef.current = { messageId, indices: completedPhaseIndices };
+  }, [messageId, completedPhaseIndices]);
 
   const handleGroupExpansionChange = useCallback(
     (groupId: string, state: ToolCallGroupExpansionState) => {
@@ -430,49 +462,27 @@ const ContentParts = memo(function ContentParts({
     return null;
   }
 
-  // Edit mode: render editable text parts. Interim skill cards are a
-  // mid-stream concern, not relevant in edit mode.
+  // Interim skill cards are a mid-stream concern, not relevant in edit mode.
   if (edit === true && enterEdit && setSiblingIdx) {
     return (
-      <>
-        {(content ?? []).map((part, localIdx) => {
-          if (!part) {
-            return null;
-          }
-          const idx = absoluteIndexAt(localIdx);
-          const isTextPart =
-            part?.type === ContentTypes.TEXT ||
-            typeof (part as unknown as Agents.MessageContentText)?.text === 'string';
-          const isThinkPart =
-            part?.type === ContentTypes.THINK ||
-            typeof (part as unknown as Agents.ReasoningDeltaUpdate)?.think === 'string';
-          if (!isTextPart && !isThinkPart) {
-            return null;
-          }
-
-          const isToolCall = part.type === ContentTypes.TOOL_CALL || part['tool_call_ids'] != null;
-          if (isToolCall) {
-            return null;
-          }
-
-          return (
-            <EditTextPart
-              index={idx}
-              part={part as Agents.MessageContentText | Agents.ReasoningDeltaUpdate}
-              messageId={messageId}
-              isSubmitting={isSubmitting}
-              enterEdit={enterEdit}
-              siblingIdx={siblingIdx ?? null}
-              setSiblingIdx={setSiblingIdx}
-              key={`edit-${messageId}-${idx}`}
-            />
-          );
-        })}
-      </>
+      <ApprovalProvider>
+        <SearchContext.Provider value={{ searchResults }}>
+          <MemoryArtifacts attachments={attachments} />
+          <EditContentParts
+            content={content ?? []}
+            contentIndexOffset={contentIndexOffset}
+            messageId={messageId}
+            isSubmitting={isSubmitting}
+            enterEdit={enterEdit}
+            siblingIdx={siblingIdx ?? null}
+            setSiblingIdx={setSiblingIdx}
+            renderReadOnlyPart={(part, idx, isLastPart) => renderPart(part, idx, isLastPart)}
+          />
+        </SearchContext.Provider>
+      </ApprovalProvider>
     );
   }
 
-  const phaseSegments = nestedActivityPhase ? undefined : groupActivityPhases(content);
   if (phaseSegments != null) {
     const relativeGlobalLastContentIdx = lastVisibleContentIdx(content ?? []);
     const globalLastContentIdx =
@@ -520,6 +530,9 @@ const ContentParts = memo(function ContentParts({
                 key={`activity-phase-${messageId}-${segment.labelIndex}`}
                 labelPart={segment.labelPart}
                 hasContent={segment.hasContent}
+                animateEntrance={
+                  previousPhaseIndices != null && !previousPhaseIndices.has(segment.labelIndex)
+                }
                 showCursor={
                   isLast &&
                   effectiveIsSubmitting &&
