@@ -640,7 +640,7 @@ const InFlightSteers = memo(function InFlightSteers({
        * steer runs to 16k chars and a run takes up to 10 of them; unbounded it
        * would cover the whole thread. pointer-events-none lets wheeling over
        * the gaps reach those messages (each bubble opts back in). */
-      className="pointer-events-none absolute inset-x-0 bottom-full mx-auto flex max-h-[35vh] max-w-3xl flex-col items-end gap-2 overflow-y-auto p-2"
+      className="pointer-events-none absolute inset-x-0 bottom-full mx-auto flex max-h-[35vh] w-full flex-col items-end gap-2 overflow-y-auto p-2 md:max-w-3xl xl:max-w-4xl"
     >
       {inFlight.map((steer) => (
         <InFlightSteer
