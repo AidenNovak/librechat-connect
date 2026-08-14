@@ -140,6 +140,12 @@ jobs:
         run: |
           google-chrome --version
           npx playwright install-deps chrome
+          # `video: 'on-first-retry'` needs ffmpeg; without it the first retry
+          # dies in browserContext.newPage before the test runs, so a flaky test
+          # loses the retry that would have recovered it. The CLI can hang after
+          # the download completes on these runners, so bound it and treat
+          # failure as non-fatal — worst case is today's behaviour.
+          timeout -k 10 90 npx playwright install ffmpeg || echo "ffmpeg install did not finish (non-fatal)"
 
       - name: Run mock-LLM Tier-1 e2e
         run: npx playwright test --config=e2e/playwright.config.mock.ts --shard=${{ matrix.shard }}/2
@@ -216,6 +222,12 @@ jobs:
         run: |
           google-chrome --version
           npx playwright install-deps chrome
+          # `video: 'on-first-retry'` needs ffmpeg; without it the first retry
+          # dies in browserContext.newPage before the test runs, so a flaky test
+          # loses the retry that would have recovered it. The CLI can hang after
+          # the download completes on these runners, so bound it and treat
+          # failure as non-fatal — worst case is today's behaviour.
+          timeout -k 10 90 npx playwright install ffmpeg || echo "ffmpeg install did not finish (non-fatal)"
           sudo apt-get update
           sudo apt-get install -y redis-server redis-tools
 
