@@ -466,6 +466,36 @@ describe('resolveHeaders', () => {
     expect(result['X-User-TermsAccepted']).toBe('true');
   });
 
+  it('resolves private adapter identity headers from the verified OpenID user and message body', () => {
+    const user = createTestUser({
+      provider: 'openid',
+      openidId: 'sub-alice',
+      email: 'alice@example.com',
+    });
+    const result = resolveHeaders({
+      headers: {
+        'X-Meimaobing-Subject': '{{LIBRECHAT_USER_OPENIDID}}',
+        'X-Meimaobing-Product-Request-ID': '{{LIBRECHAT_BODY_MESSAGEID}}',
+      },
+      user,
+      body: { messageId: 'msg-stable-1' },
+    });
+
+    expect(result['X-Meimaobing-Subject']).toBe('sub-alice');
+    expect(result['X-Meimaobing-Subject']).not.toBe('alice@example.com');
+    expect(result['X-Meimaobing-Product-Request-ID']).toBe('msg-stable-1');
+  });
+
+  it('leaves the OpenID subject placeholder unchanged when openidId is absent', () => {
+    const user = createTestUser({ email: 'alice@example.com' });
+    const result = resolveHeaders({
+      headers: { 'X-Meimaobing-Subject': '{{LIBRECHAT_USER_OPENIDID}}' },
+      user,
+    });
+
+    expect(result['X-Meimaobing-Subject']).toBe('{{LIBRECHAT_USER_OPENIDID}}');
+  });
+
   it('should handle multiple placeholders in one value', () => {
     const user = { id: 'abc', email: 'me@example.com' };
     const headers = {
