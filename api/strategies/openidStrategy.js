@@ -929,15 +929,23 @@ async function setupOpenId() {
       clientMetadata.token_endpoint_auth_method = 'none';
     }
 
+    const discoveryOptions = {
+      [client.customFetch]: customFetch,
+    };
+    if (
+      String(process.env.OPENID_ISSUER || '').startsWith('http://') &&
+      typeof client.allowInsecureRequests === 'function'
+    ) {
+      discoveryOptions.execute = [client.allowInsecureRequests];
+    }
+
     /** @type {Configuration} */
     openidConfig = await client.discovery(
       new URL(process.env.OPENID_ISSUER),
       process.env.OPENID_CLIENT_ID,
       clientMetadata,
       undefined,
-      {
-        [client.customFetch]: customFetch,
-      },
+      discoveryOptions,
     );
 
     logger.info(`[openidStrategy] OpenID authentication configuration`, {
