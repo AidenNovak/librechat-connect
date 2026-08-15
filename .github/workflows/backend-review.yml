@@ -1,9 +1,13 @@
 name: Backend Unit Tests
 on:
+  push:
+    branches: [main]
   pull_request:
     paths:
       - 'api/**'
       - 'packages/**'
+      - '.github/workflows/backend-review.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
