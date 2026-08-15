@@ -92,6 +92,9 @@ afterEach(() => {
   delete process.env.OPENID_CLIENT_SECRET;
   delete process.env.OPENID_ISSUER;
   delete process.env.OPENID_SESSION_SECRET;
+  delete process.env.OPENID_USE_PKCE;
+  delete process.env.OPENID_AUTO_REDIRECT;
+  delete process.env.OPENID_BUTTON_LABEL;
   delete process.env.GITHUB_CLIENT_ID;
   delete process.env.GITHUB_CLIENT_SECRET;
   delete process.env.DISCORD_CLIENT_ID;
@@ -250,6 +253,40 @@ describe('GET /api/config', () => {
       expect(response.body.appTitle).toBe('Test App');
       expect(response.body).toHaveProperty('emailLoginEnabled');
       expect(response.body).toHaveProperty('serverDomain');
+    });
+
+    it('enables OpenID login for a confidential client with PKCE', async () => {
+      mockGetAppConfig.mockResolvedValue(baseAppConfig);
+      process.env.OPENID_CLIENT_ID = 'meimaobing-librechat';
+      process.env.OPENID_CLIENT_SECRET = 'confidential-client-secret';
+      process.env.OPENID_ISSUER = 'https://auth.example.com';
+      process.env.OPENID_SESSION_SECRET = 'openid-session-secret';
+      process.env.OPENID_USE_PKCE = 'true';
+      process.env.OPENID_AUTO_REDIRECT = 'true';
+      process.env.OPENID_BUTTON_LABEL = '没猫饼统一账号';
+      process.env.ALLOW_SOCIAL_LOGIN = 'true';
+      const app = createApp(null);
+
+      const response = await request(app).get('/api/config');
+
+      expect(response.body.openidLoginEnabled).toBe(true);
+      expect(response.body.openidAutoRedirect).toBe(true);
+      expect(response.body.openidLabel).toBe('没猫饼统一账号');
+      expect(response.body.socialLoginEnabled).toBe(true);
+    });
+
+    it('does not enable OpenID login when the issuer is missing', async () => {
+      mockGetAppConfig.mockResolvedValue(baseAppConfig);
+      process.env.OPENID_CLIENT_ID = 'meimaobing-librechat';
+      process.env.OPENID_CLIENT_SECRET = 'confidential-client-secret';
+      process.env.OPENID_SESSION_SECRET = 'openid-session-secret';
+      process.env.OPENID_USE_PKCE = 'true';
+      const app = createApp(null);
+
+      const response = await request(app).get('/api/config');
+
+      expect(response.body.openidLoginEnabled).toBe(false);
+      expect(response.body.openidAutoRedirect).toBe(false);
     });
 
     it('should omit CloudFront cookie refresh from unauthenticated response (#12688)', async () => {

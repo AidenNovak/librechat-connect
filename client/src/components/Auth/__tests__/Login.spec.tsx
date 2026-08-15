@@ -22,6 +22,7 @@ const mockStartupConfig = {
     githubLoginEnabled: true,
     googleLoginEnabled: true,
     openidLoginEnabled: true,
+    openidAutoRedirect: false,
     openidLabel: 'Test OpenID',
     openidImageUrl: 'http://test-server.com',
     samlLoginEnabled: true,
@@ -118,6 +119,59 @@ jest.mock('react-router-dom', () => ({
     startupConfig: mockStartupConfig,
   }),
 }));
+
+test('hides the local login form when email login and registration are disabled', () => {
+  const { queryByLabelText, queryByRole, queryByTestId } = setup({
+    useGetStartupConfigReturnValue: {
+      ...mockStartupConfig,
+      data: {
+        ...mockStartupConfig.data,
+        emailLoginEnabled: false,
+        registrationEnabled: false,
+        socialLoginEnabled: true,
+        socialLogins: ['openid'],
+        discordLoginEnabled: false,
+        facebookLoginEnabled: false,
+        githubLoginEnabled: false,
+        googleLoginEnabled: false,
+        samlLoginEnabled: false,
+        openidLoginEnabled: true,
+        openidAutoRedirect: false,
+        openidLabel: '没猫饼统一账号',
+      },
+    },
+  });
+
+  expect(queryByLabelText(/email/i)).not.toBeInTheDocument();
+  expect(queryByTestId('login-button')).not.toBeInTheDocument();
+  expect(queryByRole('link', { name: /Sign up/i })).not.toBeInTheDocument();
+  expect(queryByRole('link', { name: '没猫饼统一账号' })).toBeInTheDocument();
+  expect(queryByRole('link', { name: '没猫饼统一账号' })).toHaveAttribute(
+    'href',
+    'mock-server/oauth/openid',
+  );
+});
+
+test('auto-redirects to OpenID instead of showing the local login form', () => {
+  const { queryByLabelText, getByText, queryByRole } = setup({
+    useGetStartupConfigReturnValue: {
+      ...mockStartupConfig,
+      data: {
+        ...mockStartupConfig.data,
+        emailLoginEnabled: false,
+        registrationEnabled: false,
+        openidLoginEnabled: true,
+        openidAutoRedirect: true,
+        openidLabel: '没猫饼统一账号',
+        serverDomain: 'https://chat.example.com',
+      },
+    },
+  });
+
+  expect(queryByLabelText(/email/i)).not.toBeInTheDocument();
+  expect(queryByRole('link', { name: /Sign up/i })).not.toBeInTheDocument();
+  expect(getByText(/redirecting/i)).toBeInTheDocument();
+});
 
 test('renders login form', () => {
   const { getByLabelText, getByRole } = setup();
