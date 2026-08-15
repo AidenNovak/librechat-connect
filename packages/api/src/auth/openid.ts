@@ -4,6 +4,7 @@ import type { IUser, UserMethods } from '@librechat/data-schemas';
 import type { FilterQuery } from 'mongoose';
 import { isMetricsConfigured, recordOpenIDUserLookup } from '~/app/metrics';
 import type { OpenIDUserLookupResult } from '~/app/metrics';
+import { isEnabled } from '~/utils';
 
 export type OpenIdEmailClaims = {
   email?: unknown;
@@ -249,7 +250,7 @@ export async function findOpenIDUser({
     );
     if (primaryIssuerResolution) return finish(primaryIssuerResolution);
 
-    if (!user && email) {
+    if (!user && email && !isEnabled(process.env.OPENID_DISABLE_EMAIL_MIGRATION)) {
       user = await findUser({ email });
       logger.warn(
         `[${strategyName}] user ${user ? 'found' : 'not found'} with email: ${email} for openidId: ${openidId}`,
