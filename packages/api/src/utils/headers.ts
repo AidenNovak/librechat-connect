@@ -109,7 +109,7 @@ export function resolveConfigHeaders({
     if (resolvedHeaderMaps.has(headers)) {
       return headers;
     }
-    const resolved = resolveHeaders({ headers, user, body, customUserVars });
+    const resolved = resolveHeaders({ headers, user, body, customUserVars, stripUnresolved: true });
     resolvedHeaderMaps.add(resolved);
     return resolved;
   };

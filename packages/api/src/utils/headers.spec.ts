@@ -152,4 +152,56 @@ describe('resolveConfigHeaders', () => {
     expect(() => resolveConfigHeaders({ llmConfig, user, body })).not.toThrow();
     expect(llmConfig.configuration).toEqual({});
   });
+
+  it('resolves private adapter identity headers at request time', () => {
+    const llmConfig = {
+      configuration: {
+        defaultHeaders: {
+          'X-Meimaobing-Subject': '{{LIBRECHAT_USER_OPENIDID}}',
+          'X-Meimaobing-Product-Request-ID': '{{LIBRECHAT_BODY_MESSAGEID}}',
+        },
+      },
+    } as unknown as RunLLMConfig;
+
+    resolveConfigHeaders({
+      llmConfig,
+      user: { id: 'user-123', openidId: 'sub-alice', email: 'alice@example.com' },
+      body: { messageId: 'msg-stable-1' },
+    });
+
+    expect(llmConfig.configuration?.defaultHeaders).toEqual({
+      'X-Meimaobing-Subject': 'sub-alice',
+      'X-Meimaobing-Product-Request-ID': 'msg-stable-1',
+    });
+  });
+
+  it('never forwards unresolved user placeholders when user context is missing', () => {
+    const llmConfig = {
+      configuration: {
+        defaultHeaders: {
+          'X-LibreChat-User': '{{LIBRECHAT_USER_OPENIDID}}',
+          'X-Conversation-Id': '{{LIBRECHAT_BODY_CONVERSATIONID}}',
+        },
+      },
+    } as unknown as RunLLMConfig;
+
+    resolveConfigHeaders({ llmConfig, user: {} as { id: string }, body });
+
+    expect(llmConfig.configuration?.defaultHeaders).toEqual({
+      'X-LibreChat-User': '',
+      'X-Conversation-Id': 'convo-abc',
+    });
+  });
+
+  it('strips placeholders for fields the resolved user lacks', () => {
+    const llmConfig = {
+      configuration: {
+        defaultHeaders: { 'X-LibreChat-User': '{{LIBRECHAT_USER_OPENIDID}}' },
+      },
+    } as unknown as RunLLMConfig;
+
+    resolveConfigHeaders({ llmConfig, user, body });
+
+    expect(llmConfig.configuration?.defaultHeaders).toEqual({ 'X-LibreChat-User': '' });
+  });
 });
