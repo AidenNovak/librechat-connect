@@ -1,6 +1,13 @@
 name: ESLint Code Quality Checks
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'api/**'
+      - 'client/**'
+      - 'packages/**'
+      - '.github/workflows/eslint-ci.yml'
   pull_request:
     branches:
       - main
@@ -12,6 +19,7 @@ on:
       - 'client/**'
       - 'packages/**'
       - '.github/workflows/eslint-ci.yml'
+  workflow_dispatch:
 
 jobs:
   eslint_checks:

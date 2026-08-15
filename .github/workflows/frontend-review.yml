@@ -1,12 +1,15 @@
 name: Frontend Unit Tests
 
 on:
+  push:
+    branches: [main]
   pull_request:
     paths:
       - 'client/**'
       - 'packages/client/**'
       - 'packages/data-provider/**'
       - '.github/workflows/frontend-review.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
