@@ -1,12 +1,12 @@
 import mongoose, { Types } from 'mongoose';
+import { ErrorTypes } from 'librechat-data-provider';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { logger, createMethods, createModels } from '@librechat/data-schemas';
-import { ErrorTypes } from 'librechat-data-provider';
 import type { IUser, UserMethods } from '@librechat/data-schemas';
 import type { CommandStartedEvent } from 'mongodb';
 import type { FilterQuery } from 'mongoose';
-import { recordOpenIDUserLookup } from '~/app/metrics';
 import { findOpenIDUser, getOpenIdEmail, getOpenIdIssuer, normalizeOpenIdIssuer } from './openid';
+import { recordOpenIDUserLookup } from '~/app/metrics';
 
 function newId() {
   return new Types.ObjectId();
@@ -75,6 +75,7 @@ describe('findOpenIDUser', () => {
   beforeEach(() => {
     mockFindUser = jest.fn();
     delete process.env.OPENID_ISSUER;
+    delete process.env.OPENID_DISABLE_EMAIL_MIGRATION;
     jest.clearAllMocks();
     (logger.warn as jest.Mock).mockClear();
     (logger.info as jest.Mock).mockClear();
@@ -510,6 +511,31 @@ describe('findOpenIDUser', () => {
   });
 
   describe('User migration scenarios', () => {
+    it('does not read or migrate an unbound local user by email when email migration is disabled', async () => {
+      process.env.OPENID_DISABLE_EMAIL_MIGRATION = 'true';
+      const mockUser: IUser = {
+        _id: newId(),
+        email: 'user@example.com',
+        username: 'testuser',
+      } as IUser;
+
+      mockFindUser.mockResolvedValueOnce(null).mockResolvedValueOnce(mockUser);
+
+      const result = await findOpenIDUser({
+        openidId: 'openid_123',
+        openidIssuer: issuer,
+        findUser: mockFindUser,
+        email: 'user@example.com',
+      });
+
+      expect(mockFindUser).toHaveBeenCalledTimes(1);
+      expect(mockFindUser).toHaveBeenCalledWith({
+        openidId: 'openid_123',
+        openidIssuer: issuer,
+      });
+      expect(result).toEqual({ user: null, error: null, migration: false });
+    });
+
     it('should prepare user for migration when email exists without openidId', async () => {
       const mockUser: IUser = {
         _id: newId(),

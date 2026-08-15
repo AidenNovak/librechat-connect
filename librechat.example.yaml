@@ -235,6 +235,8 @@ interface:
 #    size: "normal"      # Options: "normal", "compact", "flexible", or "invisible"
 
 # Example Registration Object Structure (optional)
+# Meimaobing deploys restrict this to ['openid'] so the local login form is not
+# an alternate identity path. Keep the broader list here for upstream clones.
 registration:
   socialLogins: ['github', 'google', 'discord', 'openid', 'facebook', 'apple', 'saml']
   # allowedDomains:
@@ -518,6 +520,24 @@ endpoints:
   #     #     deploymentName: claude-3-5-haiku@20241022  # Override for this model
 
   custom:
+    # Private OpenAI-compatible adapter that receives the verified OpenID `sub`
+    # and LibreChat's stable message id. YAML cannot HMAC-sign a Product
+    # Assertion; that stays in the private adapter. Copy into librechat.yaml
+    # and point baseURL at that service — do not send these headers to a
+    # public model provider.
+    # - name: 'Meimaobing Application'
+    #   apiKey: '${LIBRECHAT_BROKER_ADAPTER_KEY}'
+    #   baseURL: 'http://librechat-broker-adapter:8080/v1'
+    #   headers:
+    #     X-Meimaobing-Subject: '{{LIBRECHAT_USER_OPENIDID}}'
+    #     X-Meimaobing-Product-Request-ID: '{{LIBRECHAT_BODY_MESSAGEID}}'
+    #   models:
+    #     default:
+    #       - 'gpt-4o-mini'
+    #     fetch: false
+    #   titleConvo: false
+    #   summarize: false
+
     # Anthropic-compatible Example (native `/v1/messages` API)
     # Set `provider: anthropic` to use the native Anthropic client instead of the
     # default OpenAI-compatible one — for Anthropic itself or Anthropic-compatible
