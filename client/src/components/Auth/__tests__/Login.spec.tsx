@@ -22,6 +22,7 @@ const mockStartupConfig = {
     githubLoginEnabled: true,
     googleLoginEnabled: true,
     openidLoginEnabled: true,
+    openidAutoRedirect: false,
     openidLabel: 'Test OpenID',
     openidImageUrl: 'http://test-server.com',
     samlLoginEnabled: true,
@@ -152,37 +153,24 @@ test('hides the local login form when email login and registration are disabled'
 });
 
 test('auto-redirects to OpenID instead of showing the local login form', () => {
-  const previousLocation = window.location;
-  Object.defineProperty(window, 'location', {
-    configurable: true,
-    value: { href: 'http://localhost/' },
+  const { queryByLabelText, getByText, queryByRole } = setup({
+    useGetStartupConfigReturnValue: {
+      ...mockStartupConfig,
+      data: {
+        ...mockStartupConfig.data,
+        emailLoginEnabled: false,
+        registrationEnabled: false,
+        openidLoginEnabled: true,
+        openidAutoRedirect: true,
+        openidLabel: '没猫饼统一账号',
+        serverDomain: 'https://chat.example.com',
+      },
+    },
   });
 
-  try {
-    const { queryByLabelText, getByText } = setup({
-      useGetStartupConfigReturnValue: {
-        ...mockStartupConfig,
-        data: {
-          ...mockStartupConfig.data,
-          emailLoginEnabled: false,
-          registrationEnabled: false,
-          openidLoginEnabled: true,
-          openidAutoRedirect: true,
-          openidLabel: '没猫饼统一账号',
-          serverDomain: 'https://chat.example.com',
-        },
-      },
-    });
-
-    expect(queryByLabelText(/email/i)).not.toBeInTheDocument();
-    expect(getByText(/redirecting/i)).toBeInTheDocument();
-    expect(window.location.href).toBe('https://chat.example.com/oauth/openid');
-  } finally {
-    Object.defineProperty(window, 'location', {
-      configurable: true,
-      value: previousLocation,
-    });
-  }
+  expect(queryByLabelText(/email/i)).not.toBeInTheDocument();
+  expect(queryByRole('link', { name: /Sign up/i })).not.toBeInTheDocument();
+  expect(getByText(/redirecting/i)).toBeInTheDocument();
 });
 
 test('renders login form', () => {
